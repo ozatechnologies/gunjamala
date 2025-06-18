@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gunjamala Notifier</title>
+    <link rel="manifest" href="/manifest.json">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root {
+            --primary-color: #4CAF50;
+            --primary-hover: #45a049;
+            --danger: #f44336;
+            --danger-hover: #d32f2f;
+            --bg-color: #f5f5f5;
+            --card-bg: #ffffff;
+            --text-color: #333;
+            --border-radius: 8px;
+            --box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+        }
+
+        .container {
+            background: var(--card-bg);
+            padding: 30px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            margin: 20px auto;
+        }
+
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+        }
+
+        .status {
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: var(--border-radius);
+            background-color: #e8f5e9;
+            color: #2e7d32;
+            text-align: left;
+        }
+
+        .status.error {
+            background-color: #ffebee;
+            color: #c62828;
+        }
+
+        .status.warning {
+            background-color: #fff3e0;
+            color: #e65100;
+        }
+
+        button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 10px 5px;
+            cursor: pointer;
+            border-radius: var(--border-radius);
+            transition: all 0.3s;
+            white-space: nowrap;
+        }
+
+        button:hover {
+            background-color: var(--primary-hover);
+            transform: translateY(-1px);
+        }
+
+        button.danger {
+            background-color: var(--danger);
+        }
+
+        button.danger:hover {
+            background-color: var(--danger-hover);
+        }
+
+
+        .notification-time {
+            font-size: 1.2em;
+            margin: 15px 0;
+            color: var(--text-color);
+            font-weight: 500;
+        }
+
+        .timer-controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+            margin: 20px 0;
+        }
+
+        .time-input {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: var(--border-radius);
+            font-size: 16px;
+            margin: 0 5px;
+            width: 80px;
+            text-align: center;
+        }
+
+        .time-input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.2);
+        }
+
+
+        .notification-history {
+            margin-top: 30px;
+            text-align: left;
+        }
+
+        .notification-history h3 {
+            margin-bottom: 15px;
+            color: #2c3e50;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+        }
+
+        .notification-list {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #eee;
+            border-radius: var(--border-radius);
+            padding: 10px;
+        }
+
+        .notification-item {
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .notification-item:last-child {
+            border-bottom: none;
+        }
+
+        .notification-time {
+            font-size: 0.9em;
+            color: #666;
+        }
+
+
+        @media (max-width: 600px) {
+            .container {
+                padding: 15px;
+            }
+            
+            .timer-controls {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            button {
+                width: 100%;
+                margin: 5px 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1><i class="fas fa-bell"></i> Gunjamala Notifier</h1>
+        <p>Set custom notification times for Gunjamala</p>
+        
+        <div class="timer-controls">
+            <input type="time" id="customTime" class="time-input" value="06:00" required>
+            <button id="addNotification" class="primary">
+                <i class="fas fa-plus"></i> Add Time
+            </button>
+            <button id="enableNotifications">
+                <i class="fas fa-bell"></i> Enable Notifications
+            </button>
+            <button id="testNotification" class="secondary">
+                <i class="fas fa-bell"></i> Test Notification
+            </button>
+        </div>
+        
+        <div class="notification-time">
+            Next notification: <span id="nextNotification">--:--</span> IST
+        </div>
+        
+        <div class="status" id="status">
+            <i class="fas fa-info-circle"></i> Please enable notifications to continue.
+        </div>
+        
+        <div class="scheduled-times">
+            <h3><i class="far fa-clock"></i> Scheduled Notifications</h3>
+            <div id="scheduledList" class="notification-list">
+                <div class="notification-item">No scheduled times. Add one above.</div>
+            </div>
+        </div>
+        
+        <div class="notification-history">
+            <h3><i class="far fa-bell"></i> Notification History</h3>
+            <div id="notificationList" class="notification-list">
+                <div class="notification-item">No notification history yet.</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Register service worker
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function() {
+                navigator.serviceWorker.register('sw.js')
+                    .then(registration => {
+                        console.log('ServiceWorker registration successful');
+                    })
+                    .catch(err => {
+                        console.error('ServiceWorker registration failed: ', err);
+                    });
+            });
+        }
+    </script>
+    <script src="script-new.js"></script>
+</body>
+</html>
