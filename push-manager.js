@@ -1,9 +1,20 @@
 // Push Manager for Gunjamala Notifier
 class PushManager {
     constructor() {
+        // VAPID public key - in a production app, this should be stored securely
         this.publicVapidKey = 'BLjB8n1wPJ4hTIBUu0XjvJZ8X8Z4X7W9a9X8n4vJ7XZ9jK8vQ1wE9rT6yH8jK9lP3vB4n';
         this.subscription = null;
         this.serviceWorkerRegistration = null;
+        
+        // Bind methods to maintain 'this' context
+        this.initialize = this.initialize.bind(this);
+        this.updateStatus = this.updateStatus.bind(this);
+        this.requestNotificationPermission = this.requestNotificationPermission.bind(this);
+        this.subscribeToPush = this.subscribeToPush.bind(this);
+        this.urlBase64ToUint8Array = this.urlBase64ToUint8Array.bind(this);
+        this.scheduleNotification = this.scheduleNotification.bind(this);
+        this.showLocalNotification = this.showLocalNotification.bind(this);
+        this.testNotification = this.testNotification.bind(this);
         
         // Initialize when DOM is loaded
         if (document.readyState === 'loading') {
@@ -14,41 +25,70 @@ class PushManager {
     }
     
     async initialize() {
-        if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-            console.warn('Push notifications are not supported in this browser');
+        if (!('serviceWorker' in navigator)) {
+            this.updateStatus('Service workers are not supported in this browser');
+            return;
+        }
+
+        if (!('PushManager' in window)) {
+            this.updateStatus('Push notifications are not supported in this browser');
             return;
         }
         
         try {
             // Register service worker
+            console.log('Registering service worker...');
             this.serviceWorkerRegistration = await navigator.serviceWorker.register('sw.js');
-            console.log('Service Worker registered');
+            console.log('Service Worker registered with scope:', this.serviceWorkerRegistration.scope);
+            
+            // Wait for service worker to be ready
+            await navigator.serviceWorker.ready;
             
             // Check subscription status
             this.subscription = await this.serviceWorkerRegistration.pushManager.getSubscription();
             
             // If not subscribed, request permission and subscribe
             if (!this.subscription) {
-                await this.requestNotificationPermission();
-                await this.subscribeToPush();
+                console.log('No existing subscription found, requesting permission...');
+                const permissionGranted = await this.requestNotificationPermission();
+                if (permissionGranted) {
+                    await this.subscribeToPush();
+                }
             } else {
                 console.log('Already subscribed to push notifications');
+                this.updateStatus('Push notifications are enabled');
             }
         } catch (error) {
             console.error('Error initializing push notifications:', error);
+            this.updateStatus('Error: ' + error.message);
+        }
+    }
+    
+    updateStatus(message) {
+        const statusElement = document.getElementById('status');
+        if (statusElement) {
+            statusElement.innerHTML = `<i class="fas fa-info-circle"></i> ${message}`;
         }
     }
     
     async requestNotificationPermission() {
         try {
             const permission = await Notification.requestPermission();
-            if (permission !== 'granted') {
-                throw new Error('Permission not granted for Notifications');
+            if (permission === 'granted') {
+                console.log('Notification permission granted');
+                return true;
+            } else if (permission === 'denied') {
+                console.warn('Notification permission denied');
+                this.updateStatus('Notifications are blocked. Please enable them in your browser settings.');
+                return false;
+            } else {
+                console.warn('Notification permission dismissed');
+                this.updateStatus('Please enable notifications to receive alerts');
+                return false;
             }
-            console.log('Notification permission granted');
-            return true;
         } catch (error) {
             console.error('Error requesting notification permission:', error);
+            this.updateStatus('Error requesting notification: ' + error.message);
             return false;
         }
     }
@@ -126,16 +166,62 @@ class PushManager {
     
     // Show a local notification (fallback)
     showLocalNotification(title, body) {
+        if (!('Notification' in window)) {
+            console.warn('This browser does not support notifications');
+            return;
+        }
+        
         if (Notification.permission === 'granted') {
-            navigator.serviceWorker.ready.then(registration => {
-                registration.showNotification(title, {
+            // Try to show a notification using the service worker
+            if (this.serviceWorkerRegistration) {
+                this.serviceWorkerRegistration.showNotification(title, {
                     body: body,
-                    icon: 'icon-192x192.png',
-                    vibrate: [200, 100, 200],
-                    tag: 'gunjamala-notification',
-                    renotify: true
+                    icon: '/icon-192x192.png',
+                    badge: '/icon-192x192.png',
+                    vibrate: [200, 100, 200, 100, 200, 100, 200],
+                    data: {
+                        url: '/',
+                        timestamp: Date.now()
+                    }
+                }).catch(err => {
+                    console.warn('Error showing notification via service worker:', err);
+                    // Fallback to regular notification
+                    new Notification(title, { 
+                        body: body,
+                        icon: '/icon-192x192.png'
+                    });
                 });
+            } else {
+                // Fallback to regular notification if service worker is not available
+                new Notification(title, { 
+                    body: body,
+                    icon: '/icon-192x192.png'
+                });
+            }
+        } else if (Notification.permission !== 'denied') {
+            // Request permission if not already denied
+            Notification.requestPermission().then(permission => {
+                if (permission === 'granted') {
+                    this.showLocalNotification(title, body);
+                }
             });
+        }
+    }
+    
+    // Test notification
+    async testNotification() {
+        try {
+            this.updateStatus('Sending test notification...');
+            await this.showLocalNotification(
+                'Test Notification', 
+                'This is a test notification from Gunjamala Notifier.'
+            );
+            this.updateStatus('Test notification sent!');
+            return true;
+        } catch (error) {
+            console.error('Error sending test notification:', error);
+            this.updateStatus('Error sending test notification: ' + error.message);
+            return false;
         }
     }
 }

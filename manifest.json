@@ -7,7 +7,7 @@
     "background_color": "#ffffff",
     "theme_color": "#4CAF50",
     "gcm_sender_id": "103953800507",
-    "permissions": ["notifications"],
+    "permissions": ["gcm", "storage", "notifications", "background", "push"],
     "icons": [
         {
             "src": "icon-192x192.png",
@@ -23,5 +23,16 @@
     ],
     "prefer_related_applications": false,
     "related_applications": [],
-    "orientation": "portrait"
+    "orientation": "portrait",
+    "gcm_user_visible_only": true,
+    "background": {
+        "scripts": ["push-manager.js"],
+        "persistent": true
+    },
+    "push": {
+        "usePublicVapidKey": true
+    },
+    "serviceworker": {
+        "src": "firebase-messaging-sw.js"
+    }
 }

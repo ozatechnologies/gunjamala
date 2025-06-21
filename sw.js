@@ -1,8 +1,9 @@
-const CACHE_NAME = 'gunjamala-notifier-v2';
+const CACHE_NAME = 'gunjamala-notifier-v3';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
   '/script-new.js',
+  '/push-manager.js',
   '/icon-192x192.png',
   '/manifest.json'
 ];
@@ -11,35 +12,58 @@ const ASSETS_TO_CACHE = [
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME)
-      .then((cache) => cache.addAll(ASSETS_TO_CACHE))
+      .then((cache) => {
+        console.log('Caching app shell');
+        return cache.addAll(ASSETS_TO_CACHE);
+      })
   );
   self.skipWaiting();
 });
 
 // Activate event - clean up old caches
 self.addEventListener('activate', (event) => {
-    event.waitUntil(
-        caches.keys().then((cacheNames) => {
-            return Promise.all(
-                cacheNames.map((cacheName) => {
-                    if (cacheName !== CACHE_NAME) {
-                        return caches.delete(cacheName);
-                    }
-                })
-            );
+  console.log('Service Worker activating.');
+  event.waitUntil(
+    caches.keys().then((cacheNames) => {
+      return Promise.all(
+        cacheNames.map((cacheName) => {
+          if (CACHE_NAME !== cacheName) {
+            console.log('Removing old cache', cacheName);
+            return caches.delete(cacheName);
+          }
         })
-    );
+      );
+    }).then(() => {
+      // Take control of all pages under this service worker
+      return self.clients.claim();
+    })
+  );
 });
 
 // Handle push notifications
 self.addEventListener('push', (event) => {
-  console.log('[Service Worker] Push Received');
+  console.log('[Service Worker] Push Received:', event);
   
-  let notificationData = { title: 'Gunjamala Notifier', body: 'Time for Gunjamala!' };
+  let notificationData = { 
+    title: 'Gunjamala Notifier', 
+    body: 'Time for Gunjamala!',
+    icon: '/icon-192x192.png',
+    badge: '/icon-192x192.png',
+    vibrate: [200, 100, 200, 100, 200, 100, 200],
+    data: {
+      url: '/',
+      timestamp: Date.now()
+    },
+    actions: [
+      { action: 'view', title: 'View' },
+      { action: 'dismiss', title: 'Dismiss' }
+    ]
+  };
   
   try {
     if (event.data) {
-      notificationData = event.data.json();
+      const data = event.data.json();
+      notificationData = { ...notificationData, ...data };
     }
   } catch (e) {
     console.error('Error parsing notification data:', e);
@@ -48,10 +72,14 @@ self.addEventListener('push', (event) => {
   const title = notificationData.title || 'Gunjamala Notifier';
   const options = {
     body: notificationData.body || 'Time for Gunjamala!',
-    icon: 'icon-192x192.png',
-    badge: 'icon-192x192.png',
-    vibrate: [200, 100, 200],
-    data: notificationData.data || {},
+    icon: notificationData.icon || '/icon-192x192.png',
+    badge: notificationData.badge || '/icon-192x192.png',
+    vibrate: notificationData.vibrate || [200, 100, 200, 100, 200, 100, 200],
+    data: notificationData.data || { url: '/' },
+    actions: notificationData.actions || [
+      { action: 'view', title: 'View' },
+      { action: 'dismiss', title: 'Dismiss' }
+    ],
     tag: 'gunjamala-notification',
     renotify: true,
     requireInteraction: true
